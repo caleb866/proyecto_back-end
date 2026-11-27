@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const asyncHandler = require('../middlewares/asyncHandler');
+const { verificarToken } = require('../middlewares/auth');
 const { validarId, validarProducto, validarProductoParcial } = require('../middlewares/validaciones');
 
 const router = express.Router();
@@ -36,13 +37,13 @@ const aplicarCambios = (actual, body) => ({
       : actual.categoria
 });
 
-// 1) GET /productos -> lista todos (200)
+// 1) GET /productos -> lista todos (200)  [PÚBLICO]
 router.get('/', asyncHandler(async (req, res) => {
   const [filas] = await pool.query('SELECT * FROM productos ORDER BY id');
   res.status(200).json(filas.map(formatear));
 }));
 
-// 2) GET /productos/:id -> uno solo (200) o 404 si no existe
+// 2) GET /productos/:id -> uno solo (200) o 404 si no existe  [PÚBLICO]
 router.get('/:id', validarId, asyncHandler(async (req, res) => {
   const producto = await buscarPorId(req.params.id);
   if (!producto) {
@@ -51,8 +52,8 @@ router.get('/:id', validarId, asyncHandler(async (req, res) => {
   res.status(200).json(formatear(producto));
 }));
 
-// 3) POST /productos -> crea (201)
-router.post('/', validarProducto, asyncHandler(async (req, res) => {
+// 3) POST /productos -> crea (201)  [PROTEGIDO]
+router.post('/', verificarToken, validarProducto, asyncHandler(async (req, res) => {
   const { nombre, precio, stock, categoria } = normalizar(req.body);
 
   const [resultado] = await pool.query(
@@ -65,8 +66,8 @@ router.post('/', validarProducto, asyncHandler(async (req, res) => {
   res.status(201).json(formatear(nuevo));
 }));
 
-// 4) PUT /productos/:id -> reemplaza todo el producto (200) o 404
-router.put('/:id', validarId, validarProducto, asyncHandler(async (req, res) => {
+// 4) PUT /productos/:id -> reemplaza todo el producto (200) o 404  [PROTEGIDO]
+router.put('/:id', verificarToken, validarId, validarProducto, asyncHandler(async (req, res) => {
   const existente = await buscarPorId(req.params.id);
   if (!existente) {
     return res.status(404).json({ mensaje: 'Producto no encontrado' });
@@ -83,8 +84,8 @@ router.put('/:id', validarId, validarProducto, asyncHandler(async (req, res) => 
   res.status(200).json(formatear(actualizado));
 }));
 
-// 5) PATCH /productos/:id -> actualiza solo los campos enviados (200) o 404
-router.patch('/:id', validarId, validarProductoParcial, asyncHandler(async (req, res) => {
+// 5) PATCH /productos/:id -> actualiza solo los campos enviados (200) o 404  [PROTEGIDO]
+router.patch('/:id', verificarToken, validarId, validarProductoParcial, asyncHandler(async (req, res) => {
   const existente = await buscarPorId(req.params.id);
   if (!existente) {
     return res.status(404).json({ mensaje: 'Producto no encontrado' });
@@ -101,8 +102,8 @@ router.patch('/:id', validarId, validarProductoParcial, asyncHandler(async (req,
   res.status(200).json(formatear(actualizado));
 }));
 
-// 6) DELETE /productos/:id -> elimina (204 sin cuerpo) o 404
-router.delete('/:id', validarId, asyncHandler(async (req, res) => {
+// 6) DELETE /productos/:id -> elimina (204 sin cuerpo) o 404  [PROTEGIDO]
+router.delete('/:id', verificarToken, validarId, asyncHandler(async (req, res) => {
   const existente = await buscarPorId(req.params.id);
   if (!existente) {
     return res.status(404).json({ mensaje: 'Producto no encontrado' });
