@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pool = require('./config/db');
+const authRoutes = require('./routes/auth');
 const productosRoutes = require('./routes/productos');
 
 const app = express();
@@ -24,7 +25,10 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Todas las rutas de productos cuelgan de /productos
+// Rutas de usuarios: /auth/registro y /auth/login
+app.use('/auth', authRoutes);
+
+// Rutas de productos
 app.use('/productos', productosRoutes);
 
 // Si ninguna ruta coincidió -> 404

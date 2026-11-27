@@ -1,6 +1,22 @@
 // Campos que acepta el recurso productos
 const CAMPOS = ['nombre', 'precio', 'stock', 'categoria'];
 
+// Expresión regular simple para comprobar el formato de un correo (algo@dominio.ext)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Si el objeto de errores tiene algo, responde 400 y devuelve true; si no, devuelve false
+const responderSiHayErrores = (res, errores) => {
+  if (Object.keys(errores).length > 0) {
+    res.status(400).json({ mensaje: 'Datos inválidos', errores });
+    return true;
+  }
+  return false;
+};
+
+// ---------------------------------------------------------------
+// ID
+// ---------------------------------------------------------------
+
 // Valida que el :id de la URL sea un entero positivo
 const validarId = (req, res, next) => {
   const id = Number(req.params.id);
@@ -13,9 +29,13 @@ const validarId = (req, res, next) => {
   next();
 };
 
+// ---------------------------------------------------------------
+// PRODUCTOS
+// ---------------------------------------------------------------
+
 // Revisa los campos y devuelve un objeto con UN mensaje por cada campo con error
 // parcial = true cuando es PATCH (solo se validan los campos que lleguen)
-const generarErrores = (body, parcial) => {
+const generarErroresProducto = (body, parcial) => {
   const errores = {};
   const { nombre, precio, stock, categoria } = body;
 
@@ -63,7 +83,7 @@ const generarErrores = (body, parcial) => {
 };
 
 // Fabrica el middleware: parcial=false para POST/PUT, parcial=true para PATCH
-const crearValidador = (parcial) => (req, res, next) => {
+const crearValidadorProducto = (parcial) => (req, res, next) => {
   const body = req.body || {}; // en Express 5, req.body puede ser undefined si no hay body
 
   // En PATCH debe llegar al menos un campo
@@ -74,18 +94,70 @@ const crearValidador = (parcial) => (req, res, next) => {
     });
   }
 
-  const errores = generarErrores(body, parcial);
+  if (responderSiHayErrores(res, generarErroresProducto(body, parcial))) return;
+  next();
+};
 
-  // Si hay errores, respondemos 400 con el detalle por campo
-  if (Object.keys(errores).length > 0) {
-    return res.status(400).json({ mensaje: 'Datos inválidos', errores });
+// ---------------------------------------------------------------
+// USUARIOS (registro y login)
+// ---------------------------------------------------------------
+
+const validarRegistro = (req, res, next) => {
+  const { nombre, email, password } = req.body || {};
+  const errores = {};
+
+  // --- nombre ---
+  if (typeof nombre !== 'string' || nombre.trim() === '') {
+    errores.nombre = 'El nombre es obligatorio';
+  } else if (nombre.trim().length > 100) {
+    errores.nombre = 'El nombre no puede superar los 100 caracteres';
   }
 
+  // --- email ---
+  if (typeof email !== 'string' || email.trim() === '') {
+    errores.email = 'El correo es obligatorio';
+  } else if (!EMAIL_REGEX.test(email.trim())) {
+    errores.email = 'El correo no tiene un formato válido';
+  } else if (email.trim().length > 150) {
+    errores.email = 'El correo no puede superar los 150 caracteres';
+  }
+
+  // --- password ---
+  if (typeof password !== 'string' || password === '') {
+    errores.password = 'La contraseña es obligatoria';
+  } else if (password.length < 8) {
+    errores.password = 'La contraseña debe tener al menos 8 caracteres';
+  } else if (Buffer.byteLength(password, 'utf8') > 72) {
+    // bcrypt solo usa los primeros 72 bytes de la contraseña
+    errores.password = 'La contraseña es demasiado larga (máximo 72 caracteres)';
+  }
+
+  if (responderSiHayErrores(res, errores)) return;
+  next();
+};
+
+const validarLogin = (req, res, next) => {
+  const { email, password } = req.body || {};
+  const errores = {};
+
+  if (typeof email !== 'string' || email.trim() === '') {
+    errores.email = 'El correo es obligatorio';
+  } else if (!EMAIL_REGEX.test(email.trim())) {
+    errores.email = 'El correo no tiene un formato válido';
+  }
+
+  if (typeof password !== 'string' || password === '') {
+    errores.password = 'La contraseña es obligatoria';
+  }
+
+  if (responderSiHayErrores(res, errores)) return;
   next();
 };
 
 module.exports = {
   validarId,
-  validarProducto: crearValidador(false),
-  validarProductoParcial: crearValidador(true)
+  validarProducto: crearValidadorProducto(false),
+  validarProductoParcial: crearValidadorProducto(true),
+  validarRegistro,
+  validarLogin
 };
